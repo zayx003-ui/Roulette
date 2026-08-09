@@ -449,9 +449,18 @@
     messagingSenderId: "708586359390",
     appId: "1:708586359390:web:3c6fe64a15f5a8747702cf"
   };
-  firebase.initializeApp(firebaseConfig);
-  const db = firebase.firestore();
-  const stateRef = db.collection('roulette').doc('gwen');
+  let db = null;
+  let stateRef = null;
+  try{
+    if(typeof firebase === 'undefined'){
+      throw new Error('Le SDK Firebase ne s\'est pas chargé (vérifie ta connexion).');
+    }
+    firebase.initializeApp(firebaseConfig);
+    db = firebase.firestore();
+    stateRef = db.collection('roulette').doc('gwen');
+  }catch(e){
+    console.error('Firebase indisponible, la page fonctionnera en mode local uniquement.', e);
+  }
   // ============================================================================
 
   const PASSWORD = 'Gwen1234';
@@ -688,13 +697,4 @@
     }
 
     const now = Date.now();
-    const newEntry = { cents: finalCents, timestamp: now };
-    const history = [newEntry, ...(currentHistory || [])].slice(0, 10);
-    currentHistory = history;
-    await saveState({ lastSpin: newEntry, history });
-
-    startCountdown(now + COOLDOWN_MS);
-  }
-
-  async function initRoulette(){
-    const state = await g
+    const newEntry = { cents: fi
