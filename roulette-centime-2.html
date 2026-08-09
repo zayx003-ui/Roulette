@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>La Roulette au Centime</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<style>
+  :root{
+    --felt: #0e3d2c;
+    --felt-deep: #082019;
+    --gold: #c9a227;
+    --gold-bright: #e8c547;
+    --ivory: #ece4d3;
+    --ink: #12241d;
+    --common: #8fae94;
+    --uncommon: #6fa8c9;
+    --rare: #c9a227;
+    --epic: #b33a3a;
+    --legendary: #e8c547;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    min-height:100vh;
+    background:
+      radial-gradient(circle at 50% -10%, #1a5940 0%, var(--felt) 45%, var(--felt-deep) 100%);
+    font-family:'Inter',sans-serif;
+    color:var(--ivory);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:32px 16px;
+  }
+  .stage{
+    width:100%;
+    max-width:440px;
+  }
+  .stage.hidden{ display:none; }
+
+  /* password gate */
+  .gate{
+    width:100%;
+    max-width:340px;
+    text-align:center;
+  }
+  .gate.hidden{ display:none; }
+  .gate .lock-icon{
+    font-size:28px;
+    margin-bottom:10px;
+    opacity:0.85;
+  }
+  .gate h2{
+    font-family:'Oswald',sans-serif;
+    font-weight:600;
+    font-size:20px;
+    letter-spacing:0.03em;
+    margin:0 0 6px;
+    color:var(--ivory);
+  }
+  .gate p{
+    font-size:13px;
+    color:rgba(236,228,211,0.6);
+    margin:0 0 20px;
+  }
+  .gate input{
+    width:100%;
+    padding:13px 14px;
+    border-radius:8px;
+    border:1px solid rgba(232,197,71,0.3);
+    background:rgba(255,255,255,0.05);
+    color:var(--ivory);
+    font-family:'Inter',sans-serif;
+    font-size:15px;
+    text-align:center;
+    letter-spacing:0.04em;
+    margin-bottom:12px;
+  }
+  .gate input:focus{
+    outline:none;
+    border-color:var(--gold-bright);
+  }
+  .gate input:focus-visible{
+    outline:2px solid var(--ivory);
+    outline-offset:2px;
+  }
+  .gate .gate-error{
+    font-size:12px;
+    color:#e2a3a3;
+    min-height:16px;
+    margin-bottom:10px;
+  }
+  .gate button{
+    display:block;
+    width:100%;
+    padding:14px 0;
+    border:none;
+    border-radius:8px;
+    background:linear-gradient(180deg,var(--gold-bright),var(--gold));
+    color:var(--felt-deep);
+    font-family:'Oswald',sans-serif;
+    font-weight:600;
+    font-size:15px;
+    letter-spacing:0.08em;
+    text-transform:uppercase;
+    cursor:pointer;
+    box-shadow:0 6px 0 #8a7118, 0 10px 18px rgba(0,0,0,0.35);
+    transition:transform .08s ease, box-shadow .08s ease;
+  }
+  .gate button:active{
+    transform:translateY(4px);
+    box-shadow:0 2px 0 #8a7118, 0 4px 10px rgba(0,0,0,0.3);
+  }
+  .gate button.admin-link{
+    display:block;
+    width:100%;
+    margin-top:16px;
+    padding:6px 0;
+    font-size:11px;
+    color:rgba(236,228,211,0.35);
+    background:none;
+    border:none;
+    box-shadow:none;
+    text-transform:none;
+    letter-spacing:0.04em;
+    font-family:'Inter',sans-serif;
+    font-weight:400;
+    cursor:pointer;
+  }
+  .gate button.admin-link:active{
+    transform:none;
+    box-shadow:none;
+  }
+  .admin-link:hover{ color:rgba(236,228,211,0.6); }
+  .eyebrow{
+    text-align:center;
+    font-size:11px;
+    letter-spacing:0.28em;
+    text-transform:uppercase;
+    color:var(--gold-bright);
+    opacity:0.85;
+    margin-bottom:6px;
+  }
+  h1{
+    font-family:'Oswald',sans-serif;
+    font-weight:700;
+    font-size:clamp(28px,7vw,38px);
+    text-align:center;
+    letter-spacing:0.02em;
+    margin:0 0 4px;
+    color:var(--ivory);
+  }
+  .subtitle{
+    text-align:center;
+    font-size:13px;
+    color:rgba(236,228,211,0.6);
+    margin-bottom:26px;
+  }
+
+  /* Ticket stub */
+  .ticket{
+    position:relative;
+    background:linear-gradient(180deg,#12321f,#0c2417);
+    border:1px solid rgba(232,197,71,0.25);
+    border-radius:14px;
+    padding:30px 24px 22px;
+    box-shadow:0 20px 50px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.03);
+  }
+  .perf{
+    position:absolute;
+    left:0; right:0;
+    height:14px;
+    background-image:radial-gradient(circle 7px, var(--felt-deep) 99%, transparent 100%);
+    background-size:22px 14px;
+    background-repeat:repeat-x;
+    background-position:11px 0;
+  }
+  .perf.top{ top:-7px; }
+  .perf.bottom{ bottom:-7px; }
+  .dash{
+    border-top:2px dashed rgba(232,197,71,0.3);
+    margin:0 -6px;
+  }
+
+  .display-wrap{
+    text-align:center;
+    padding:22px 0 18px;
+  }
+  .tier-label{
+    font-size:11px;
+    letter-spacing:0.24em;
+    text-transform:uppercase;
+    color:var(--gold-bright);
+    height:16px;
+    margin-bottom:6px;
+    transition:color .25s ease;
+  }
+  .amount{
+    font-family:'Oswald',sans-serif;
+    font-weight:600;
+    font-size:clamp(46px,14vw,64px);
+    letter-spacing:0.01em;
+    line-height:1;
+    font-variant-numeric:tabular-nums;
+    color:var(--ivory);
+    text-shadow:0 0 18px rgba(232,197,71,0);
+    transition:color .3s ease, text-shadow .3s ease;
+  }
+  .amount .cur{ font-size:0.5em; vertical-align:0.35em; color:var(--gold-bright); margin-left:4px;}
+  .amount.spinning{ color:rgba(236,228,211,0.55); }
+  .amount.legendary{ color:var(--legendary); text-shadow:0 0 22px rgba(232,197,71,0.55); }
+  .amount.epic{ color:#e2a3a3; }
+  .amount.rare{ color:var(--gold-bright); }
+
+  button#spin{
+    display:block;
+    width:100%;
+    margin-top:20px;
+    padding:15px 0;
+    border:none;
+    border-radius:8px;
+    background:linear-gradient(180deg,var(--gold-bright),var(--gold));
+    color:var(--felt-deep);
+    font-family:'Oswald',sans-serif;
+    font-weight:600;
+    font-size:16px;
+    letter-spacing:0.1em;
+    text-transform:uppercase;
+    cursor:pointer;
+    box-shadow:0 6px 0 #8a7118, 0 10px 18px rgba(0,0,0,0.35);
+    transition:transform .08s ease, box-shadow .08s ease;
+  }
+  button#spin:active{
+    transform:translateY(4px);
+    box-shadow:0 2px 0 #8a7118, 0 4px 10px rgba(0,0,0,0.3);
+  }
+  button#spin:disabled{
+    opacity:0.55;
+    cursor:default;
+    transform:none;
+    box-shadow:0 6px 0 #8a7118, 0 10px 18px rgba(0,0,0,0.35);
+  }
+  button#spin:focus-visible{
+    outline:2px solid var(--ivory);
+    outline-offset:3px;
+  }
+
+  .cooldown{
+    text-align:center;
+    font-size:12px;
+    letter-spacing:0.04em;
+    color:rgba(236,228,211,0.55);
+    margin-top:10px;
+    font-variant-numeric:tabular-nums;
+    min-height:16px;
+  }
+  .cooldown.ready{ color:var(--gold-bright); }
+
+  /* probability strip */
+  .prob-block{ margin-top:24px; }
+  .prob-label{
+    display:flex;
+    justify-content:space-between;
+    font-size:10px;
+    letter-spacing:0.12em;
+    text-transform:uppercase;
+    color:rgba(236,228,211,0.55);
+    margin-bottom:6px;
+  }
+  .prob-strip{
+    position:relative;
+    height:34px;
+    border-radius:6px;
+    overflow:hidden;
+    background:linear-gradient(90deg,
+      var(--common) 0%, var(--common) 10%,
+      var(--uncommon) 10%, var(--uncommon) 30%,
+      var(--rare) 30%, var(--rare) 60%,
+      var(--epic) 60%, var(--epic) 90%,
+      var(--legendary) 90%, var(--legendary) 100%);
+    opacity:0.35;
+  }
+  .prob-strip .curve{
+    position:absolute; inset:0;
+    background:linear-gradient(90deg, rgba(0,0,0,0) 0%, var(--felt-deep) 100%);
+  }
+  .prob-marker{
+    position:absolute;
+    top:-4px;
+    width:2px;
+    height:42px;
+    background:var(--ivory);
+    box-shadow:0 0 8px rgba(236,228,211,0.8);
+    transform:translateX(-1px);
+    transition:left .5s cubic-bezier(.2,.8,.2,1);
+    opacity:0;
+  }
+  .prob-marker.show{ opacity:1; }
+  .prob-ticks{
+    display:flex;
+    justify-content:space-between;
+    font-size:9px;
+    color:rgba(236,228,211,0.4);
+    margin-top:4px;
+  }
+
+  /* history */
+  .history{
+    margin-top:22px;
+  }
+  .history-label{
+    font-size:10px;
+    letter-spacing:0.12em;
+    text-transform:uppercase;
+    color:rgba(236,228,211,0.5);
+    margin-bottom:8px;
+  }
+  .chips{
+    display:flex;
+    flex-wrap:wrap;
+    gap:6px;
+    min-height:26px;
+  }
+  .chip{
+    font-family:'Oswald',sans-serif;
+    font-size:12px;
+    font-weight:500;
+    padding:4px 9px;
+    border-radius:20px;
+    background:rgba(255,255,255,0.06);
+    border:1px solid rgba(232,197,71,0.2);
+  }
+  .chip.commun{ color:var(--common); }
+  .chip.peu-commun{ color:var(--uncommon); }
+  .chip.rare{ color:var(--rare); }
+  .chip.epique{ color:#e2a3a3; }
+  .chip.legendaire{ color:var(--legendary); font-weight:600; }
+
+  .admin-row{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:8px 0;
+    border-bottom:1px solid rgba(232,197,71,0.12);
+    font-size:13px;
+  }
+  .admin-row:last-child{ border-bottom:none; }
+  .admin-row .admin-amount{
+    font-family:'Oswald',sans-serif;
+    font-weight:600;
+  }
+  .admin-row .admin-date{
+    color:rgba(236,228,211,0.55);
+    font-size:12px;
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    .amount, #spin, .prob-marker{ transition:none !important; }
+  }
+</style>
+</head>
+<body>
+
+<div class="gate" id="gate">
+  <div class="lock-icon">🔒</div>
+  <h2>Accès privé</h2>
+  <p>Entre le mot de passe pour ouvrir la roulette.</p>
+  <input type="password" id="pwInput" placeholder="Mot de passe" autocomplete="off">
+  <div class="gate-error" id="pwError">&nbsp;</div>
+  <button id="pwSubmit">Entrer</button>
+  <button type="button" id="adminLink" class="admin-link">Accès admin</button>
+</div>
+
+<div class="gate hidden" id="adminGate">
+  <div class="lock-icon">🛠️</div>
+  <h2>Panneau admin</h2>
+  <p>Mot de passe administrateur.</p>
+  <input type="password" id="adminPwInput" placeholder="Mot de passe admin" autocomplete="off">
+  <div class="gate-error" id="adminPwError">&nbsp;</div>
+  <button id="adminPwSubmit">Entrer</button>
+</div>
+
+<div class="stage hidden" id="adminPanel">
+  <div class="eyebrow">Panneau admin</div>
+  <h1 style="font-size:26px;">Contrôle du cooldown</h1>
+  <div class="ticket">
+    <div class="perf top"></div>
+    <div class="display-wrap">
+      <div class="tier-label" id="adminStatusLabel">&nbsp;</div>
+      <div class="amount" id="adminAmount" style="font-size:38px;">—</div>
+    </div>
+    <div class="dash"></div>
+    <button id="resetBtn">Réinitialiser le cooldown</button>
+    <div class="cooldown" id="adminMsg">&nbsp;</div>
+
+    <div class="dash" style="margin-top:18px;"></div>
+
+    <div class="history" style="margin-top:16px;">
+      <div class="history-label">Historique complet</div>
+      <div id="adminHistoryList"></div>
+    </div>
+
+    <div class="perf bottom"></div>
+  </div>
+</div>
+
+<div class="stage hidden" id="stage">
+  <div class="eyebrow">Mise à 0 € — sortie garantie</div>
+  <h1>La Roulette au Centime</h1>
+  <p class="subtitle">De 0,00 € à 10,00 €, centime par centime. Plus le montant grimpe, plus il est rare.</p>
+
+  <div class="ticket">
+    <div class="perf top"></div>
+
+    <div class="display-wrap">
+      <div class="tier-label" id="tierLabel">&nbsp;</div>
+      <div class="amount" id="amount">0<span class="cur">,00 €</span></div>
+    </div>
+
+    <div class="dash"></div>
+
+    <button id="spin">Tirer</button>
+    <div class="cooldown" id="cooldown">&nbsp;</div>
+
+    <div class="prob-block">
+      <div class="prob-label"><span>Probable</span><span>Rare</span></div>
+      <div class="prob-strip">
+        <div class="curve"></div>
+        <div class="prob-marker" id="marker"></div>
+      </div>
+      <div class="prob-ticks"><span>0 €</span><span>2,50 €</span><span>5 €</span><span>7,50 €</span><span>10 €</span></div>
+    </div>
+
+    <div class="history">
+      <div class="history-label">Derniers tirages</div>
+      <div class="chips" id="chips"></div>
+    </div>
+
+    <div class="perf bottom"></div>
+  </div>
+</div>
+
+<script>
+(async function(){
+  // ==== CONFIGURATION FIREBASE — à remplir avec les valeurs de TON projet ====
+  // Va sur https://console.firebase.google.com → Paramètres du projet → tes applications → config SDK
+  const firebaseConfig = {
+    apiKey: "AIzaSyA3as0FHy-zaUE5zdJ4lNVJiVFt8MMO4xI",
+    authDomain: "site-356af.firebaseapp.com",
+    projectId: "site-356af",
+    storageBucket: "site-356af.firebasestorage.app",
+    messagingSenderId: "708586359390",
+    appId: "1:708586359390:web:3c6fe64a15f5a8747702cf"
+  };
+  let db = null;
+  let stateRef = null;
+  try{
+    if(typeof firebase === 'undefined'){
+      throw new Error('Le SDK Firebase ne s\'est pas chargé (vérifie ta connexion).');
+    }
+    firebase.initializeApp(firebaseConfig);
+    db = firebase.firestore();
+    stateRef = db.collection('roulette').doc('gwen');
+  }catch(e){
+    console.error('Firebase indisponible, la page fonctionnera en mode local uniquement.', e);
+  }
+  // ============================================================================
+
+  const PASSWORD = 'Gwen1234';
+  const ADMIN_PASSWORD = 'admin1234';
+  const gateEl = document.getElementById('gate');
+  const stageEl = document.getElementById('stage');
+  const pwInput = document.getElementById('pwInput');
+  const pwSubmit = document.getElementById('pwSubmit');
+  const pwError = document.getElementById('pwError');
+  const adminLink = document.getElementById('adminLink');
+  const adminGateEl = document.getElementById('adminGate');
+  const adminPwInput = document.getElementById('adminPwInput');
+  const adminPwSubmit = document.getElementById('adminPwSubmit');
+  const adminPwError = document.getElementById('adminPwError');
+  const adminPanelEl = document.getElementById('adminPanel');
+  const adminStatusLabel = document.getElementById('adminStatusLabel');
+  const adminAmountEl = document.getElementById('adminAmount');
+  const adminMsgEl = document.getElementById('adminMsg');
+  const resetBtn = document.getElementById('resetBtn');
+
+  function unlock(){
+    gateEl.classList.add('hidden');
+    stageEl.classList.remove('hidden');
+    initRoulette();
+  }
+
+  function tryUnlock(){
+    if(pwInput.value === PASSWORD){
+      unlock();
+    } else {
+      pwError.textContent = 'Mot de passe incorrect.';
+      pwInput.value = '';
+      pwInput.focus();
+    }
+  }
+
+  pwSubmit.addEventListener('click', tryUnlock);
+  pwInput.addEventListener('keydown', (e) => { if(e.key === 'Enter') tryUnlock(); });
+  pwInput.focus();
+
+  adminLink.addEventListener('click', () => {
+    gateEl.classList.add('hidden');
+    adminGateEl.classList.remove('hidden');
+    adminPwInput.focus();
+  });
+
+  async function tryAdminUnlock(){
+    if(adminPwInput.value === ADMIN_PASSWORD){
+      adminGateEl.classList.add('hidden');
+      adminPanelEl.classList.remove('hidden');
+      await loadAdminState();
+    } else {
+      adminPwError.textContent = 'Mot de passe incorrect.';
+      adminPwInput.value = '';
+      adminPwInput.focus();
+    }
+  }
+
+  adminPwSubmit.addEventListener('click', tryAdminUnlock);
+  adminPwInput.addEventListener('keydown', (e) => { if(e.key === 'Enter') tryAdminUnlock(); });
+
+  const DECAY = 150; // scale in cents — plus petit = decroissance plus rapide
+  const MAX_C = 1000;
+  const COOLDOWN_MS = 24 * 60 * 60 * 1000; // 24h
+
+  // pré-calcul des poids cumulés pour un tirage pondéré rapide
+  const weights = [];
+  let total = 0;
+  for(let c=0; c<=MAX_C; c++){
+    const w = Math.exp(-c/DECAY);
+    weights.push(w);
+    total += w;
+  }
+  const cumulative = [];
+  { let acc=0; for(let c=0;c<=MAX_C;c++){ acc+=weights[c]; cumulative.push(acc); } }
+
+  function drawCents(){
+    const r = Math.random()*total;
+    // recherche binaire
+    let lo=0, hi=cumulative.length-1;
+    while(lo<hi){
+      const mid=(lo+hi)>>1;
+      if(cumulative[mid] < r) lo=mid+1; else hi=mid;
+    }
+    return lo;
+  }
+
+  function tierOf(c){
+    if(c < 100) return {name:'Commun', cls:'commun'};
+    if(c < 300) return {name:'Peu commun', cls:'peu-commun'};
+    if(c < 600) return {name:'Rare', cls:'rare'};
+    if(c < 900) return {name:'Épique', cls:'epique'};
+    return {name:'Légendaire', cls:'legendaire'};
+  }
+
+  function fmt(c){
+    const euros = Math.floor(c/100);
+    const cents = String(c%100).padStart(2,'0');
+    return euros + ',' + cents;
+  }
+
+  const amountEl = document.getElementById('amount');
+  const tierLabelEl = document.getElementById('tierLabel');
+  const spinBtn = document.getElementById('spin');
+  const markerEl = document.getElementById('marker');
+  const chipsEl = document.getElementById('chips');
+  const cooldownEl = document.getElementById('cooldown');
+
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  function setAmount(c, cls){
+    amountEl.className = 'amount' + (cls ? ' '+cls : '');
+    amountEl.innerHTML = fmt(c) + '<span class="cur">€</span>';
+  }
+
+  function renderChip(cents, tier, prepend){
+    const chip = document.createElement('div');
+    chip.className = 'chip ' + tier.cls;
+    chip.textContent = fmt(cents) + ' €';
+    if(prepend) chipsEl.prepend(chip); else chipsEl.appendChild(chip);
+  }
+
+  function renderChips(history){
+    chipsEl.innerHTML = '';
+    history.slice(0,10).forEach(entry => renderChip(entry.cents, tierOf(entry.cents), false));
+  }
+
+  async function getState(){
+    if(!stateRef){
+      return { lastSpin: null, history: [] };
+    }
+    try{
+      const snap = await stateRef.get();
+      if(snap.exists){
+        const data = snap.data();
+        return {
+          lastSpin: data.lastSpin || null,
+          history: data.history || []
+        };
+      }
+      return { lastSpin: null, history: [] };
+    }catch(e){
+      console.error('Erreur de lecture Firestore', e);
+      return { lastSpin: null, history: [] };
+    }
+  }
+
+  async function saveState(state){
+    if(!stateRef){
+      console.error('Firestore indisponible, état non sauvegardé.');
+      return;
+    }
+    try{
+      await stateRef.set(state);
+    }catch(e){
+      console.error('Erreur d\'écriture Firestore', e);
+    }
+  }
+
+  let countdownTimer = null;
+  let currentHistory = [];
+
+  function formatRemaining(ms){
+    const totalSec = Math.max(0, Math.ceil(ms/1000));
+    const h = String(Math.floor(totalSec/3600)).padStart(2,'0');
+    const m = String(Math.floor((totalSec%3600)/60)).padStart(2,'0');
+    const s = String(totalSec%60).padStart(2,'0');
+    return h+':'+m+':'+s;
+  }
+
+  function startCountdown(readyAt){
+    spinBtn.disabled = true;
+    cooldownEl.classList.remove('ready');
+    if(countdownTimer) clearInterval(countdownTimer);
+
+    function tick(){
+      const remaining = readyAt - Date.now();
+      if(remaining <= 0){
+        clearInterval(countdownTimer);
+        cooldownEl.textContent = 'Tirage disponible';
+        cooldownEl.classList.add('ready');
+        spinBtn.disabled = false;
+        return;
+      }
+      cooldownEl.textContent = 'Prochain tirage dans ' + formatRemaining(remaining);
+    }
+    tick();
+    countdownTimer = setInterval(tick, 1000);
+  }
+
+  function setReadyState(){
+    spinBtn.disabled = false;
+    cooldownEl.textContent = 'Tirage disponible';
+    cooldownEl.classList.add('ready');
+  }
+
+  async function spin(){
+    spinBtn.disabled = true;
+    tierLabelEl.textContent = '';
+    markerEl.classList.remove('show');
+    cooldownEl.classList.remove('ready');
+    cooldownEl.textContent = '';
+
+    const finalCents = drawCents();
+    const finalTier = tierOf(finalCents);
+
+    if(reduced){
+      setAmount(finalCents, finalTier.cls);
+      await finish(finalCents, finalTier);
+      return;
+    }
+
+    let elapsed = 0;
+    const duration = 2200;
+    const start = performance.now();
+
+    function frame(now){
+      elapsed = now - start;
+      const t = Math.min(elapsed/duration, 1);
+      if(t < 1){
+        const randC = Math.floor(Math.random()*(MAX_C+1));
+        setAmount(randC, '');
+        amountEl.classList.add('spinning');
+        requestAnimationFrame(frame);
+      } else {
+        setAmount(finalCents, finalTier.cls);
+        finish(finalCents, finalTier);
+      }
+    }
+    requestAnimationFrame(frame);
+  }
+
+  async function finish(finalCents, finalTier){
+    tierLabelEl.textContent = finalTier.name;
+    const pct = (finalCents/MAX_C)*100;
+    markerEl.style.left = pct + '%';
+    markerEl.classList.add('show');
+    renderChip(finalCents, finalTier, true);
+    while(chipsEl.children.length > 10){
+      chipsEl.removeChild(chipsEl.lastChild);
+    }
+
+    const now = Date.now();
+    const newEntry = { cents: finalCents, timestamp: now };
+    const history = [newEntry, ...(currentHistory || [])].slice(0, 10);
+    currentHistory = history;
+    await saveState({ lastSpin: newEntry, history });
+
+    startCountdown(now + COOLDOWN_MS);
+  }
+
+  async function initRoulette(){
+    const state = await getState();
+    currentHistory = state.history || [];
+
+    if(currentHistory.length){
+      renderChips(currentHistory);
+    }
+
+    if(state.lastSpin){
+      setAmount(state.lastSpin.cents, tierOf(state.lastSpin.cents).cls);
+      tierLabelEl.textContent = tierOf(state.lastSpin.cents).name;
+      const readyAt = state.lastSpin.timestamp + COOLDOWN_MS;
+      if(Date.now() < readyAt){
+        startCountdown(readyAt);
+      } else {
+        setReadyState();
+      }
+    } else {
+      setReadyState();
+    }
+  }
+
+  function formatDateTime(ts){
+    const d = new Date(ts);
+    const datePart = d.toLocaleDateString('fr-FR', { day:'2-digit', month:'2-digit', year:'numeric' });
+    const timePart = d.toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit' });
+    return datePart + ' à ' + timePart;
+  }
+
+  function renderAdminHistory(history){
+    const listEl = document.getElementById('adminHistoryList');
+    listEl.innerHTML = '';
+    if(!history || !history.length){
+      listEl.innerHTML = '<div class="admin-row"><span class="admin-date">Aucun tirage pour le moment.</span></div>';
+      return;
+    }
+    history.forEach(entry => {
+      const tier = tierOf(entry.cents);
+      const row = document.createElement('div');
+      row.className = 'admin-row';
+      row.innerHTML =
+        '<span class="admin-amount chip ' + tier.cls + '" style="border:none;background:none;padding:0;">' + fmt(entry.cents) + ' €</span>' +
+        '<span class="admin-date">' + formatDateTime(entry.timestamp) + '</span>';
+      listEl.appendChild(row);
+    });
+  }
+
+  async function loadAdminState(){
+    adminMsgEl.textContent = '';
+    adminMsgEl.classList.remove('ready');
+    const state = await getState();
+    if(state.lastSpin){
+      const tier = tierOf(state.lastSpin.cents);
+      adminAmountEl.textContent = fmt(state.lastSpin.cents) + ' €';
+      const readyAt = state.lastSpin.timestamp + COOLDOWN_MS;
+      if(Date.now() < readyAt){
+        const remaining = formatRemaining(readyAt - Date.now());
+        adminStatusLabel.textContent = tier.name + ' — cooldown actif (' + remaining + ' restant)';
+      } else {
+        adminStatusLabel.textContent = tier.name + ' — cooldown déjà terminé';
+      }
+    } else {
+      adminAmountEl.textContent = '—';
+      adminStatusLabel.textContent = 'Aucun tirage enregistré';
+    }
+    renderAdminHistory(state.history || []);
+  }
+
+  resetBtn.addEventListener('click', async () => {
+    resetBtn.disabled = true;
+    adminMsgEl.textContent = 'Réinitialisation…';
+    const state = await getState();
+    await saveState({ lastSpin: null, history: state.history || [] });
+    adminMsgEl.textContent = 'Cooldown réinitialisé ✓';
+    adminMsgEl.classList.add('ready');
+    resetBtn.disabled = false;
+    await loadAdminState();
+  });
+
+  spinBtn.addEventListener('click', spin);
+})();
+</script>
+
+</body>
+</html>
