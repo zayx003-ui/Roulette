@@ -114,6 +114,15 @@
     transform:translateY(4px);
     box-shadow:0 2px 0 #8a7118, 0 4px 10px rgba(0,0,0,0.3);
   }
+  .admin-link{
+    display:block;
+    margin-top:16px;
+    font-size:11px;
+    color:rgba(236,228,211,0.35);
+    text-decoration:none;
+    letter-spacing:0.04em;
+  }
+  .admin-link:hover{ color:rgba(236,228,211,0.6); }
   .eyebrow{
     text-align:center;
     font-size:11px;
@@ -318,6 +327,24 @@
   .chip.epique{ color:#e2a3a3; }
   .chip.legendaire{ color:var(--legendary); font-weight:600; }
 
+  .admin-row{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:8px 0;
+    border-bottom:1px solid rgba(232,197,71,0.12);
+    font-size:13px;
+  }
+  .admin-row:last-child{ border-bottom:none; }
+  .admin-row .admin-amount{
+    font-family:'Oswald',sans-serif;
+    font-weight:600;
+  }
+  .admin-row .admin-date{
+    color:rgba(236,228,211,0.55);
+    font-size:12px;
+  }
+
   @media (prefers-reduced-motion: reduce){
     .amount, #spin, .prob-marker{ transition:none !important; }
   }
@@ -332,6 +359,40 @@
   <input type="password" id="pwInput" placeholder="Mot de passe" autocomplete="off">
   <div class="gate-error" id="pwError">&nbsp;</div>
   <button id="pwSubmit">Entrer</button>
+  <a href="javascript:void(0)" id="adminLink" class="admin-link">Accès admin</a>
+</div>
+
+<div class="gate hidden" id="adminGate">
+  <div class="lock-icon">🛠️</div>
+  <h2>Panneau admin</h2>
+  <p>Mot de passe administrateur.</p>
+  <input type="password" id="adminPwInput" placeholder="Mot de passe admin" autocomplete="off">
+  <div class="gate-error" id="adminPwError">&nbsp;</div>
+  <button id="adminPwSubmit">Entrer</button>
+</div>
+
+<div class="stage hidden" id="adminPanel">
+  <div class="eyebrow">Panneau admin</div>
+  <h1 style="font-size:26px;">Contrôle du cooldown</h1>
+  <div class="ticket">
+    <div class="perf top"></div>
+    <div class="display-wrap">
+      <div class="tier-label" id="adminStatusLabel">&nbsp;</div>
+      <div class="amount" id="adminAmount" style="font-size:38px;">—</div>
+    </div>
+    <div class="dash"></div>
+    <button id="resetBtn">Réinitialiser le cooldown</button>
+    <div class="cooldown" id="adminMsg">&nbsp;</div>
+
+    <div class="dash" style="margin-top:18px;"></div>
+
+    <div class="history" style="margin-top:16px;">
+      <div class="history-label">Historique complet</div>
+      <div id="adminHistoryList"></div>
+    </div>
+
+    <div class="perf bottom"></div>
+  </div>
 </div>
 
 <div class="stage hidden" id="stage">
@@ -388,11 +449,22 @@
   // ============================================================================
 
   const PASSWORD = 'Gwen1234';
+  const ADMIN_PASSWORD = 'admin1234';
   const gateEl = document.getElementById('gate');
   const stageEl = document.getElementById('stage');
   const pwInput = document.getElementById('pwInput');
   const pwSubmit = document.getElementById('pwSubmit');
   const pwError = document.getElementById('pwError');
+  const adminLink = document.getElementById('adminLink');
+  const adminGateEl = document.getElementById('adminGate');
+  const adminPwInput = document.getElementById('adminPwInput');
+  const adminPwSubmit = document.getElementById('adminPwSubmit');
+  const adminPwError = document.getElementById('adminPwError');
+  const adminPanelEl = document.getElementById('adminPanel');
+  const adminStatusLabel = document.getElementById('adminStatusLabel');
+  const adminAmountEl = document.getElementById('adminAmount');
+  const adminMsgEl = document.getElementById('adminMsg');
+  const resetBtn = document.getElementById('resetBtn');
 
   function unlock(){
     gateEl.classList.add('hidden');
@@ -413,6 +485,27 @@
   pwSubmit.addEventListener('click', tryUnlock);
   pwInput.addEventListener('keydown', (e) => { if(e.key === 'Enter') tryUnlock(); });
   pwInput.focus();
+
+  adminLink.addEventListener('click', () => {
+    gateEl.classList.add('hidden');
+    adminGateEl.classList.remove('hidden');
+    adminPwInput.focus();
+  });
+
+  async function tryAdminUnlock(){
+    if(adminPwInput.value === ADMIN_PASSWORD){
+      adminGateEl.classList.add('hidden');
+      adminPanelEl.classList.remove('hidden');
+      await loadAdminState();
+    } else {
+      adminPwError.textContent = 'Mot de passe incorrect.';
+      adminPwInput.value = '';
+      adminPwInput.focus();
+    }
+  }
+
+  adminPwSubmit.addEventListener('click', tryAdminUnlock);
+  adminPwInput.addEventListener('keydown', (e) => { if(e.key === 'Enter') tryAdminUnlock(); });
 
   const DECAY = 150; // scale in cents — plus petit = decroissance plus rapide
   const MAX_C = 1000;
@@ -605,23 +698,3 @@
       renderChips(currentHistory);
     }
 
-    if(state.lastSpin){
-      setAmount(state.lastSpin.cents, tierOf(state.lastSpin.cents).cls);
-      tierLabelEl.textContent = tierOf(state.lastSpin.cents).name;
-      const readyAt = state.lastSpin.timestamp + COOLDOWN_MS;
-      if(Date.now() < readyAt){
-        startCountdown(readyAt);
-      } else {
-        setReadyState();
-      }
-    } else {
-      setReadyState();
-    }
-  }
-
-  spinBtn.addEventListener('click', spin);
-})();
-</script>
-
-</body>
-</html>
